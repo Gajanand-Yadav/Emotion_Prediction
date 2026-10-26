@@ -1,273 +1,202 @@
+(() => {
+  "use strict";
 
-const userText = document.getElementById("userText");
-const analyzeBtn = document.getElementById("analyzeBtn");
-const btnText = document.getElementById("btnText");
-const clearBtn = document.getElementById("clearBtn");
-const charCount = document.getElementById("charCount");
-const errorMessage = document.getElementById("errorMessage");
+  const EMOJI = {
+    sadness: "😢",
+    joy: "😄",
+    love: "❤️",
+    anger: "😠",
+    fear: "😨",
+    surprise: "😲",
+  };
 
-const serverStatus = document.getElementById("serverStatus");
-const statusDot = document.querySelector(".status-dot");
+  const el = {
+    statusDot: document.getElementById("statusDot"),
+    serverStatusText: document.getElementById("serverStatusText"),
+    textInput: document.getElementById("textInput"),
+    charCount: document.getElementById("charCount"),
+    analyzeBtn: document.getElementById("analyzeBtn"),
+    errorMsg: document.getElementById("errorMsg"),
+    orb: document.getElementById("orb"),
+    orbEmoji: document.getElementById("orbEmoji"),
+    resultSection: document.getElementById("resultSection"),
+    emotionWord: document.getElementById("emotionWord"),
+    emotionEmoji: document.getElementById("emotionEmoji"),
+    confidenceText: document.getElementById("confidenceText"),
+    echoedText: document.getElementById("echoedText"),
+    barsContainer: document.getElementById("barsContainer"),
+  };
 
-const emptyState = document.getElementById("emptyState");
-const resultContent = document.getElementById("resultContent");
+  let modelReady = false;
 
-const emotionInfo = {
-  sadness: {
-    emoji: "😢",
-    description: "A tone associated with sadness or disappointment",
-  },
-  joy: {
-    emoji: "😄",
-    description: "A tone associated with happiness or excitement",
-  },
-  love: {
-    emoji: "❤️",
-    description: "A tone associated with affection or care",
-  },
-  anger: {
-    emoji: "😠",
-    description: "A tone associated with anger or frustration",
-  },
-  fear: {
-    emoji: "😨",
-    description: "A tone associated with fear or worry",
-  },
-  surprise: {
-    emoji: "😲",
-    description: "A tone associated with surprise or amazement",
-  },
-};
+  /* ---------------------------------------------------------------
+     Health check — poll until the model is loaded
+  --------------------------------------------------------------- */
+  async function checkHealth() {
+    try {
+      const res = await fetch("/health");
+      if (!res.ok) throw new Error("bad status");
+      const data = await res.json();
 
-function updateCharCount() {
-  charCount.textContent = `${userText.value.length} / 2000 characters`;
-}
-
-function showError(message) {
-  errorMessage.textContent = message;
-  errorMessage.hidden = false;
-}
-
-function clearError() {
-  errorMessage.textContent = "";
-  errorMessage.hidden = true;
-}
-
-function setLoading(isLoading) {
-  analyzeBtn.disabled = isLoading;
-  userText.disabled = isLoading;
-  btnText.textContent = isLoading ? "Analyzing your emotions..." : "Analyze my emotions";
-}
-
-async function checkServer() {
-  try {
-    const response = await fetch("/health");
-
-    if (!response.ok) {
-      throw new Error("Health check failed");
+      modelReady = !!data.model_loaded;
+      if (modelReady) {
+        setStatus("live", "model ready — say something");
+      } else {
+        setStatus("warming", "waking the model up…");
+        setTimeout(checkHealth, 3000);
+      }
+    } catch (e) {
+      setStatus("down", "can't reach the server");
+      setTimeout(checkHealth, 5000);
     }
-
-    const data = await response.json();
-
-    if (data.model_loaded) {
-      serverStatus.textContent = "AI engine connected";
-      statusDot.className = "status-dot online";
-    } else {
-      serverStatus.textContent = "Model not loaded";
-      statusDot.className = "status-dot offline";
-    }
-  } catch (error) {
-    serverStatus.textContent = "Server unavailable";
-    statusDot.className = "status-dot offline";
-  }
-}
-
-function formatEmotion(emotion) {
-  return emotion.charAt(0).toUpperCase() + emotion.slice(1);
-}
-
-function formatPercentage(value) {
-  // Model outputs are normally probabilities between 0 and 1.
-  return `${(value * 100).toFixed(2)}%`;
-}
-
-function displayPrediction(data) {
-  const emotion = data.predicted_emotion.toLowerCase();
-  const info = emotionInfo[emotion];
-
-  if (!info) {
-    throw new Error("The API returned an unknown emotion label.");
+    syncButtonState();
   }
 
-  const confidence = Number(data.confidence);
-
-  if (!Number.isFinite(confidence)) {
-    throw new Error("The API returned an invalid confidence score.");
+  function setStatus(kind, text) {
+    el.statusDot.className = "brand-mark " + kind;
+    el.serverStatusText.textContent = text;
   }
 
-  document.getElementById("mainEmoji").textContent = info.emoji;
-  document.getElementById("emotionName").textContent = formatEmotion(emotion);
-  document.getElementById("emotionDescription").textContent = info.description;
-
-  document.getElementById("confidenceValue").textContent =
-    formatPercentage(confidence);
-
-  document.getElementById("confidenceBar").style.width =
-    `${Math.max(0, Math.min(100, confidence * 100))}%`;
-
-  document.getElementById("analyzedText").textContent = data.text;
-
-  const probabilityList = document.getElementById("probabilityList");
-  probabilityList.replaceChildren();
-
-  const probabilities = data.all_probablities;
-
-  if (!probabilities || typeof probabilities !== "object") {
-    throw new Error("The API did not return emotion probabilities.");
-  }
-
-  const sortedProbabilities = Object.entries(probabilities)
-    .sort((a, b) => Number(b[1]) - Number(a[1]));
-
-  for (const [label, rawProbability] of sortedProbabilities) {
-    const probability = Number(rawProbability);
-    const details = emotionInfo[label.toLowerCase()];
-
-    if (!details || !Number.isFinite(probability)) {
-      continue;
-    }
-
-    const percentage = Math.max(0, Math.min(100, probability * 100));
-
-    const item = document.createElement("div");
-    item.className = "probability-item";
-
-    if (label.toLowerCase() === emotion) {
-      item.classList.add("top-emotion");
-    }
-
-    const meta = document.createElement("div");
-    meta.className = "probability-meta";
-
-    const name = document.createElement("span");
-    name.className = "probability-name";
-
-    const emoji = document.createElement("span");
-    emoji.className = "emotion-emoji";
-    emoji.textContent = details.emoji;
-
-    const labelText = document.createElement("span");
-    labelText.textContent = formatEmotion(label);
-
-    name.append(emoji, labelText);
-
-    const value = document.createElement("span");
-    value.className = "probability-value";
-    value.textContent = formatPercentage(probability);
-
-    meta.append(name, value);
-
-    const track = document.createElement("div");
-    track.className = "probability-track";
-
-    const fill = document.createElement("div");
-    fill.className = "probability-fill";
-
-    track.appendChild(fill);
-    item.append(meta, track);
-    probabilityList.appendChild(item);
-
-    // Animate each probability bar after inserting it into the page.
-    requestAnimationFrame(() => {
-      fill.style.width = `${percentage}%`;
-    });
-  }
-
-  emptyState.hidden = true;
-  resultContent.hidden = false;
-
-  // Move results into view on small screens.
-  if (window.innerWidth <= 900) {
-    document.getElementById("resultPanel").scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-}
-
-async function analyzeEmotion() {
-  clearError();
-
-  const text = userText.value.trim();
-
-  if (!text) {
-    showError("Please enter a sentence before analyzing your emotions.");
-    userText.focus();
-    return;
-  }
-
-  setLoading(true);
-
-  try {
-    const response = await fetch("/predict", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ text }),
-    });
-
-    const data = await response.json().catch(() => ({}));
-
-    if (!response.ok) {
-      const detail = data.detail;
-
-      const message = Array.isArray(detail)
-        ? detail.map((item) => item.msg || "Invalid input").join(", ")
-        : typeof detail === "string"
-          ? detail
-          : `Request failed with status ${response.status}.`;
-
-      throw new Error(message);
-    }
-
-    displayPrediction(data);
-  } catch (error) {
-    if (error instanceof TypeError) {
-      showError("Could not connect to the server. Check that FastAPI is running.");
-    } else {
-      showError(error.message || "Something went wrong. Please try again.");
-    }
-  } finally {
-    setLoading(false);
-  }
-}
-
-userText.addEventListener("input", updateCharCount);
-
-userText.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-    analyzeEmotion();
-  }
-});
-
-analyzeBtn.addEventListener("click", analyzeEmotion);
-
-clearBtn.addEventListener("click", () => {
-  userText.value = "";
-  updateCharCount();
-  clearError();
-  userText.focus();
-});
-
-document.querySelectorAll(".chip").forEach((chip) => {
-  chip.addEventListener("click", () => {
-    userText.value = chip.dataset.text || "";
-    updateCharCount();
-    clearError();
-    userText.focus();
+  /* ---------------------------------------------------------------
+     Input handling
+  --------------------------------------------------------------- */
+  el.textInput.addEventListener("input", () => {
+    el.charCount.textContent = el.textInput.value.length;
+    syncButtonState();
   });
-});
 
-updateCharCount();
-checkServer();
+  el.textInput.addEventListener("keydown", (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault();
+      runAnalysis();
+    }
+  });
+
+  function syncButtonState() {
+    const hasText = el.textInput.value.trim().length > 0;
+    el.analyzeBtn.disabled = !hasText || !modelReady;
+  }
+
+  el.analyzeBtn.addEventListener("click", runAnalysis);
+
+  /* ---------------------------------------------------------------
+     Analysis flow
+  --------------------------------------------------------------- */
+  async function runAnalysis() {
+    const text = el.textInput.value.trim();
+    if (!text || !modelReady) return;
+
+    hideError();
+    enterThinking();
+
+    try {
+      const res = await fetch("/predict", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        const detail =
+          body && body.detail
+            ? typeof body.detail === "string"
+              ? body.detail
+              : "The model couldn't process that sentence."
+            : `Request failed (${res.status}).`;
+        throw new Error(detail);
+      }
+
+      const data = await res.json();
+      renderResult(data, text);
+    } catch (err) {
+      exitThinking(false);
+      showError(err.message || "Something went wrong. Try again.");
+    }
+  }
+
+  function enterThinking() {
+    el.analyzeBtn.classList.add("loading");
+    el.analyzeBtn.querySelector(".btn-label").textContent = "Reading…";
+    el.analyzeBtn.disabled = true;
+    el.orb.classList.remove("settled");
+    el.orb.classList.add("thinking");
+    el.orbEmoji.style.opacity = "0";
+  }
+
+  function exitThinking(success) {
+    el.analyzeBtn.classList.remove("loading");
+    el.analyzeBtn.querySelector(".btn-label").textContent = "Read the mood";
+    syncButtonState();
+    el.orb.classList.remove("thinking");
+    if (!success) {
+      el.orbEmoji.textContent = "✎";
+      el.orbEmoji.style.opacity = "1";
+    }
+  }
+
+  function renderResult(data, originalText) {
+    const emotion = data.predicted_emotion;
+    const emoji = EMOJI[emotion] || "🙂";
+
+    document.body.setAttribute("data-emotion", emotion);
+
+    el.orb.classList.add("settled");
+    el.orbEmoji.textContent = emoji;
+    el.orbEmoji.style.opacity = "1";
+    exitThinking(true);
+
+    el.emotionWord.textContent = capitalize(emotion);
+    el.emotionEmoji.textContent = emoji;
+    el.confidenceText.textContent = `${(data.confidence * 100).toFixed(1)}% confidence`;
+    el.echoedText.textContent = `“${originalText}”`;
+
+    renderBars(data.all_probabilites);
+
+    el.resultSection.hidden = false;
+    el.resultSection.classList.remove("entering");
+    void el.resultSection.offsetWidth; // restart animation
+    el.resultSection.classList.add("entering");
+
+    el.resultSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function renderBars(probs) {
+    const entries = Object.entries(probs).sort((a, b) => b[1] - a[1]);
+    el.barsContainer.innerHTML = "";
+
+    entries.forEach(([label, value], i) => {
+      const pct = value * 100;
+      const row = document.createElement("div");
+      row.className = `bar-row bar-${label}`;
+      row.innerHTML = `
+        <span class="bar-label">${EMOJI[label] || ""} ${label}</span>
+        <span class="bar-track"><span class="bar-fill"></span></span>
+        <span class="bar-pct">${pct.toFixed(1)}%</span>
+      `;
+      el.barsContainer.appendChild(row);
+
+      const fill = row.querySelector(".bar-fill");
+      setTimeout(() => {
+        fill.style.width = pct + "%";
+      }, 60 + i * 70);
+    });
+  }
+
+  function showError(msg) {
+    el.errorMsg.textContent = msg;
+    el.errorMsg.hidden = false;
+  }
+  function hideError() {
+    el.errorMsg.hidden = true;
+  }
+
+  function capitalize(s) {
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
+  /* ---------------------------------------------------------------
+     Boot
+  --------------------------------------------------------------- */
+  checkHealth();
+})();

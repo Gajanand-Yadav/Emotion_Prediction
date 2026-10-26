@@ -1,199 +1,91 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="theme-color" content="#0b1020" />
-  <title>EmotiSense — AI Emotion Detector</title>
-  <meta name="description" content="Discover the emotions behind your words using AI." />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Moodline — read the emotion in your words</title>
+<meta name="description" content="Type a sentence and watch a BiGRU model read the emotion inside it.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,500;1,9..144,600&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
 
-  <header class="navbar">
-    <a class="brand" href="/">
-      <span class="brand-icon">✳</span>
-      <span>Emoti<span class="brand-accent">Sense</span></span>
-    </a>
-    <div class="nav-status">
-      <span class="status-dot"></span>
-      <span id="serverStatus">Checking AI engine...</span>
+<div class="grain"></div>
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" id="statusDot" title="checking server..."></span>
+      <span class="brand-name">Moodline</span>
     </div>
+    <p class="brand-tag">an instrument that reads the mood inside a sentence</p>
   </header>
 
-  <main class="container">
-    <section class="hero">
-      <div class="eyebrow"><span>✦</span> POWERED BY DEEP LEARNING</div>
-      <h1>Every word has an<br /><span class="gradient-text">emotion behind it.</span></h1>
-      <p class="hero-description">
-        Discover the feelings hidden in your words. Let AI uncover the emotion
-        behind every sentence.
-      </p>
-    </section>
+  <main>
 
-    <section class="workspace">
-      <div class="panel input-panel">
-        <div class="panel-heading">
-          <div>
-            <span class="step-label">01 / INPUT</span>
-            <h2>What's on your mind?</h2>
-          </div>
-          <span class="sparkle">✧</span>
+    <section class="console" id="console">
+
+      <div class="orb-stage">
+        <div class="orb-glow" id="orbGlow"></div>
+        <div class="orb" id="orb">
+          <span class="orb-emoji" id="orbEmoji">✎</span>
         </div>
+      </div>
 
-        <label class="sr-only" for="userText">Enter text to analyze</label>
+      <div class="input-panel">
+        <span class="eyebrow">INPUT</span>
         <textarea
-          id="userText"
+          id="textInput"
           maxlength="2000"
-          placeholder="Write a thought, share a feeling, or enter a sentence..."
+          placeholder="Write a sentence and let it speak for itself&#10;— e.g. “I can't believe we actually pulled this off.”"
         ></textarea>
 
-        <div class="input-meta">
-          <span id="charCount">0 / 2000 characters</span>
-          <button id="clearBtn" class="text-button" type="button">Clear text</button>
+        <div class="input-footer">
+          <span class="char-count"><span id="charCount">0</span> / 2000</span>
+          <button id="analyzeBtn" class="btn-primary" disabled>
+            <span class="btn-label">Read the mood</span>
+            <span class="btn-arrow">→</span>
+          </button>
         </div>
 
-        <div class="examples">
-          <span class="examples-label">TRY AN EXAMPLE</span>
-          <div class="example-chips">
-            <button class="chip" data-text="I feel so happy and excited today!" type="button">😊 Happy</button>
-            <button class="chip" data-text="I miss the people I love so much." type="button">❤️ Love</button>
-            <button class="chip" data-text="I am worried about what might happen tomorrow." type="button">🌧️ Worried</button>
-          </div>
-        </div>
-
-        <button id="analyzeBtn" class="analyze-btn" type="button">
-          <span class="btn-icon">✦</span>
-          <span id="btnText">Analyze my emotions</span>
-          <span class="btn-arrow">↗</span>
-        </button>
-        <p class="privacy-note"><span>⌁</span> Your text is analyzed by your connected AI model.</p>
-        <p id="errorMessage" class="error-message" role="alert" hidden></p>
+        <p class="error-msg" id="errorMsg" hidden></p>
       </div>
 
-      <div class="panel result-panel" id="resultPanel">
-        <div class="panel-heading">
-          <div>
-            <span class="step-label">02 / INSIGHT</span>
-            <h2>Your emotional snapshot</h2>
-          </div>
-          <span class="result-sparkle">✧</span>
-        </div>
-
-        <div id="emptyState" class="empty-state">
-          <div class="empty-orbit">
-            <div class="orbit orbit-one"></div>
-            <div class="orbit orbit-two"></div>
-            <div class="orbit-center">✳</div>
-            <span class="orbit-emoji emoji-one">😊</span>
-            <span class="orbit-emoji emoji-two">💜</span>
-            <span class="orbit-emoji emoji-three">✨</span>
-          </div>
-          <h3>Your results will appear here</h3>
-          <p>Enter a sentence and let your AI model discover its emotional tone.</p>
-          <div class="empty-divider"><span></span> SIX EMOTIONS <span></span></div>
-          <div class="mini-emotions">
-            <span>😢</span><span>😄</span><span>❤️</span>
-            <span>😠</span><span>😨</span><span>😲</span>
-          </div>
-        </div>
-
-        <div id="resultContent" hidden>
-          <div class="prediction-card" id="predictionCard">
-            <div class="prediction-top">
-              <span class="prediction-label">DOMINANT EMOTION</span>
-              <span class="live-badge"><span></span> AI RESULT</span>
-            </div>
-            <div class="prediction-main">
-              <div class="main-emoji" id="mainEmoji">😄</div>
-              <div>
-                <h3 id="emotionName">Joy</h3>
-                <p id="emotionDescription">A positive emotional tone</p>
-              </div>
-            </div>
-            <div class="confidence-row">
-              <span>Model confidence</span>
-              <strong id="confidenceValue">0%</strong>
-            </div>
-            <div class="confidence-track">
-              <div id="confidenceBar" class="confidence-fill"></div>
-            </div>
-          </div>
-
-          <div class="probability-heading">
-            <h3>Emotion breakdown</h3>
-            <span>ALL 6 CLASSES</span>
-          </div>
-          <div id="probabilityList" class="probability-list"></div>
-
-          <div class="analyzed-text">
-            <span class="analyzed-icon">“</span>
-            <div>
-              <span class="analyzed-label">YOUR ANALYZED TEXT</span>
-              <p id="analyzedText"></p>
-            </div>
-          </div>
-        </div>
-      </div>
     </section>
 
-    <section class="emotion-guide">
-      <div class="guide-heading">
-        <span class="step-label">THE EMOTION LIBRARY</span>
-        <h2>Six emotions. One sentence.</h2>
-        <p>Explore the six emotional categories your model can recognize.</p>
+    <section class="result" id="resultSection" hidden>
+
+      <div class="reveal">
+        <span class="eyebrow">DETECTED</span>
+        <div class="reveal-main">
+          <span class="reveal-emoji" id="emotionEmoji">😄</span>
+          <h1 id="emotionWord">Joy</h1>
+        </div>
+        <span class="confidence-mono" id="confidenceText">92.4% confidence</span>
+        <blockquote class="echoed-text" id="echoedText"></blockquote>
       </div>
 
-      <div class="emotion-grid">
-        <article class="emotion-tile tile-sadness">
-          <span class="tile-emoji">😢</span>
-          <h3>Sadness</h3>
-          <p>Loss, sorrow and disappointment</p>
-        </article>
-        <article class="emotion-tile tile-joy">
-          <span class="tile-emoji">😄</span>
-          <h3>Joy</h3>
-          <p>Happiness, excitement and delight</p>
-        </article>
-        <article class="emotion-tile tile-love">
-          <span class="tile-emoji">❤️</span>
-          <h3>Love</h3>
-          <p>Affection, care and connection</p>
-        </article>
-        <article class="emotion-tile tile-anger">
-          <span class="tile-emoji">😠</span>
-          <h3>Anger</h3>
-          <p>Frustration, irritation and outrage</p>
-        </article>
-        <article class="emotion-tile tile-fear">
-          <span class="tile-emoji">😨</span>
-          <h3>Fear</h3>
-          <p>Worry, anxiety and uncertainty</p>
-        </article>
-        <article class="emotion-tile tile-surprise">
-          <span class="tile-emoji">😲</span>
-          <h3>Surprise</h3>
-          <p>Amazement and the unexpected</p>
-        </article>
+      <div class="breakdown">
+        <span class="eyebrow">BREAKDOWN</span>
+        <div class="bars" id="barsContainer"></div>
       </div>
+
     </section>
 
-    <footer class="footer">
-      <a class="brand footer-brand" href="/">
-        <span class="brand-icon">✳</span>
-        <span>Emoti<span class="brand-accent">Sense</span></span>
-      </a>
-      <p>Built with FastAPI, TensorFlow &amp; BiGRU</p>
-      <span class="footer-caption">UNDERSTANDING EMOTIONS, ONE WORD AT A TIME.</span>
-    </footer>
   </main>
 
-  <script src="/static/script.js"></script>
+  <footer class="footbar">
+    <span id="serverStatusText">connecting to model…</span>
+    <span class="footbar-hint">⌘ / Ctrl + Enter to analyze</span>
+  </footer>
+
+</div>
+
+<script src="/static/script.js"></script>
 </body>
 </html>
